@@ -1,0 +1,158 @@
+---
+title: "dorny/paths-filter full release history and changelog"
+description: "Full version history for the dorny/paths-filter GitHub Action, from the initial v1.0.0 release through the current v4.0.0 Node 24 runtime update."
+---
+
+This page lists every release of `dorny/paths-filter` in reverse chronological order. You can also browse tags and release notes directly on the [GitHub releases page](https://github.com/dorny/paths-filter/releases).
+
+## v4.0.0
+
+<Warning>
+  **Breaking change.** The action runtime was updated from Node.js 20 to **Node.js 24**. If you pin to `v4`, ensure your runner supports the `node24` runtime. Runners on older Ubuntu images may need to be updated.
+</Warning>
+
+- Updated action runtime to `node24`.
+
+## v3.0.3
+
+- Added the missing `predicate-quantifier` input that was documented but not wired up in v3.0.2.
+
+## v3.0.2
+
+- Added the `predicate-quantifier` input, allowing you to require that a file matches all patterns rather than at least one.
+
+## v3.0.1
+
+- Fixed change detection to correctly compare `base` and `ref` when `token` is set to an empty string.
+
+## v3.0.0
+
+<Warning>
+  **Breaking change.** The action runtime was updated to **Node.js 20**. Runners that only support Node.js 16 are no longer compatible.
+</Warning>
+
+- Updated runtime to Node.js 20.
+- Updated all dependencies to their latest versions.
+
+## v2.11.1
+
+- Updated `@actions/core` to v1.10.0, resolving deprecation warnings about `set-output`.
+- Documented the `pull-requests: read` permission requirement.
+- Updated examples to use `actions/checkout@v3`.
+
+## v2.11.0
+
+- Marked the `list-files` input as not required (it already defaulted to `none`).
+- Updated the Node.js runtime used by the action.
+- Fixed incorrect handling of Unicode characters in `exec()`.
+- Switched to Octokit pagination for fetching large PR file lists.
+
+## v2.10.2
+
+- Fixed `getLocalRef()` returning the wrong Git reference in some checkout configurations.
+
+## v2.10.1
+
+- Improved robustness of change detection to handle edge cases in shallow clones.
+
+## v2.10.0
+
+- Added the `ref` input parameter for workflows triggered on the default branch that need to detect changes on another branch.
+- Fixed change detection in pull requests when `pullRequest.changed_files` reports an incorrect count.
+
+## v2.9.3
+
+- Fixed change detection when `base` is set to a tag rather than a branch name.
+
+## v2.9.2
+
+- Fixed an issue with fetching Git history in shallow clones.
+
+## v2.9.1
+
+- Fixed Git history fetching and added a fallback to unshallow the repository when needed.
+
+## v2.9.0
+
+- Added `list-files: csv` format — a comma-separated list with double-quoted filenames for unsafe characters.
+
+## v2.8.0
+
+- Added the `<filter_name>_count` output variable, providing the count of matched files for each filter.
+- Fixed log grouping so change results are displayed correctly in the Actions log.
+
+## v2.7.0
+
+- Added the `changes` output variable (a JSON array of matched filter names) to support dynamic matrix job configuration.
+- Improved file listing for `list-files: shell` and `list-files: escape` to handle more edge cases.
+
+## v2.6.0
+
+- Added support for detecting local changes by setting `base: HEAD`.
+
+## v2.5.3
+
+- Fixed mapping of `removed`/`deleted` change statuses from the GitHub API.
+- Fixed retrieval of all changes via the GitHub API when there are more than 100 changed files.
+
+## v2.5.2
+
+- Added support for multiple patterns when filtering by file change status.
+- Switched from `micromatch` wrapper to `picomatch` directly for more predictable glob matching.
+
+## v2.5.1
+
+- Improved path matching accuracy using `micromatch`.
+
+## v2.5.0
+
+- Added support for workflows triggered by any event type.
+
+## v2.4.2
+
+- Fixed compatibility with Git versions older than 2.23.
+
+## v2.4.0
+
+- Added support for pushes of tags and for using a tag as the `base`.
+- Falls back to `git log` to detect PR changes when `token` is not available.
+- Added support for local execution with [`act`](https://github.com/nektos/act).
+- Improved handling of the initial push to a repository and the first push of a new branch.
+
+## v2.3.0
+
+- Changed detection now uses the Git three-dot diff (`...`) for more accurate results on feature branches.
+- Added `list-files` input and the `<filter_name>_files` output to export matched file paths.
+- Extended the filter syntax to allow filtering by file change status (`added`, `modified`, `deleted`).
+- Added the `working-directory` input.
+- Improved documentation.
+
+## v2.2.1
+
+- Added support for the `pull_request_target` event.
+
+## v2.2.0
+
+- Improved change detection accuracy for feature branches.
+
+## v2.1.0
+
+- Added support for reusable path blocks using YAML anchors.
+
+## v2.0.0
+
+- Added support for workflows triggered by `push` events.
+- The action and repository were renamed from `paths-changes-filter` to `paths-filter`.
+
+## v1.1.0
+
+- Added support for specifying filters in a separate `.yml` file.
+- Added an alternative change detection method using `git fetch` and `git diff-index`.
+
+## v1.0.1
+
+- Updated dependencies to address a GitHub security alert.
+
+## v1.0.0
+
+- First official release published to the GitHub Actions Marketplace.

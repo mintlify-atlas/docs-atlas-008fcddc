@@ -1,0 +1,95 @@
+---
+title: "Advanced configuration: quantifiers, depth, and act"
+description: "Configure predicate-quantifier, working-directory, and initial-fetch-depth in dorny/paths-filter, and run workflows locally with act."
+---
+
+Beyond basic glob filters, `dorny/paths-filter` provides several options that give you fine-grained control over matching semantics, repository layout, and fetch behaviour. This page covers the less common inputs you reach for when the defaults are not quite right.
+
+## predicate-quantifier: every
+
+By default, a file matches a filter if **any** rule in the filter list matches it (`some` quantifier). When you set `predicate-quantifier: every`, a file must satisfy **all** rules — including negation rules — before it counts as a match.
+
+This distinction matters most when you want to exclude specific file types from a broad path match:
+
+```yaml
+- uses: dorny/paths-filter@v4
+  with:
+    predicate-quantifier: 'every'
+    filters: |
+      backend:
+        - 'pkg/a/b/c/**'
+        - '!**/*.jpeg'
+        - '!**/*.md'
+```
+
+<CardGroup cols={2}>
+  <Card title="some (default)">
+    A file under `pkg/a/b/c/` matches because it satisfies the first rule. The negation rules are never the sole reason a file is included, so they have no effective exclusion power.
+  </Card>
+  <Card title="every">
+    A file must match `pkg/a/b/c/**` **and** not match `**/*.jpeg` **and** not match `**/*.md`. JPEG and Markdown files in that directory are excluded as intended.
+  </Card>
+</CardGroup>
+
+<Warning>
+`predicate-quantifier` is a global setting — it applies to every filter in the document. If you need different quantifier semantics per filter, split them into separate action steps.
+</Warning>
+
+## working-directory
+
+When you check out your repository to a subdirectory (using `actions/checkout`'s `path` input), set `working-directory` to the same path so the action resolves filter patterns and filter files relative to the correct root:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    path: my-repo
+- uses: dorny/paths-filter@v4
+  with:
+    working-directory: my-repo
+    filters: |
+      src:
+        - 'src/**'
+```
+
+Without this, the action looks for changed files and filter file paths relative to `$GITHUB_WORKSPACE`, which won't match if your checkout lives in a subdirectory.
+
+## initial-fetch-depth
+
+When detecting changes on feature branches, `dorny/paths-filter` needs to find the common ancestor (merge-base) between the current branch and the base branch. It does this with a series of shallow git fetches, starting with the depth you configure here.
+
+```yaml
+- uses: dorny/paths-filter@v4
+  with:
+    initial-fetch-depth: '200'
+    filters: |
+      src:
+        - 'src/**'
+```
+
+Each retry doubles the previous fetch depth (100 → 200 → 400 → …) until the merge-base is found or the full history has been fetched. The default of `100` works for most projects. Increase it if your feature branches routinely diverge more than a hundred commits from their base.
+
+<Note>
+`initial-fetch-depth` has no effect on `pull_request` workflows because those use the GitHub REST API rather than git commands to list changed files.
+</Note>
+
+## Loading filters from an external file
+
+For large projects, inline filters can make workflow files unwieldy. Move them to a dedicated YAML file and reference the path:
+
+```yaml
+- uses: dorny/paths-filter@v4
+  with:
+    filters: .github/filters.yaml
+```
+
+The action treats the `filters` value as a file path when it contains no newline or colon character. The file is resolved relative to the working directory and must be accessible at the time the action runs — commit it to your repository so it is present on every branch.
+
+## Local execution with act
+
+[act](https://github.com/nektos/act) lets you run GitHub Actions workflows locally. Because `dorny/paths-filter` calls git commands for non-pull-request change detection, the runner image must have the `git` binary installed. The default `act` image does not include git, so you need to use an alternative image:
+
+```bash
+act -P ubuntu-latest=nektos/act-environments-ubuntu:18.04
+```
+
+The `nektos/act-environments-ubuntu:18.04` image is a full Ubuntu environment with git available. Note it is a large download on first use.

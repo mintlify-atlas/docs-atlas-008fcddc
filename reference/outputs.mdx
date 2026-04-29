@@ -1,0 +1,67 @@
+---
+title: "dorny/paths-filter action outputs complete reference"
+description: "Complete reference for all outputs from dorny/paths-filter: per-filter booleans, file counts, matched file lists, and the changes JSON array."
+---
+
+This page documents every output that `dorny/paths-filter` sets after it runs. Outputs follow a naming convention based on the filter names you define. Access them in subsequent steps using `steps.<id>.outputs.<name>`.
+
+<Note>
+  All output values are strings, even those that represent booleans or numbers. Use `== 'true'` (not `== true`) when checking boolean filter outputs in `if:` conditions.
+</Note>
+
+## Per-filter outputs
+
+For each filter named `<filter_name>` in your configuration, the action sets up to three outputs.
+
+<ResponseField name="<filter_name>" type="string">
+  `'true'` if at least one changed file matched the filter rules; `'false'` otherwise. This output is always set regardless of the `list-files` setting.
+</ResponseField>
+
+<ResponseField name="<filter_name>_count" type="string">
+  The number of changed files that matched the filter, expressed as a numeric string (e.g. `'3'`). Always set regardless of the `list-files` setting.
+</ResponseField>
+
+<ResponseField name="<filter_name>_files" type="string">
+  A list of changed files that matched the filter. Only set when `list-files` is not `none`. The format (CSV, JSON array, shell-escaped, etc.) depends on the `list-files` input value.
+</ResponseField>
+
+## Global outputs
+
+<ResponseField name="changes" type="string">
+  A JSON array containing the names of all filters that matched at least one changed file. For example: `'["backend", "frontend"]'`. Use this output to dynamically configure matrix jobs.
+
+  <Note>
+    You cannot name a filter `changes`, as that name is reserved for this output.
+  </Note>
+</ResponseField>
+
+## Full example
+
+```yaml
+- uses: dorny/paths-filter@v4
+  id: filter
+  with:
+    list-files: json
+    filters: |
+      backend:
+        - 'backend/**'
+      frontend:
+        - 'frontend/**'
+
+# Access boolean output
+- if: steps.filter.outputs.backend == 'true'
+  run: echo "Backend changed"
+
+# Access count
+- run: echo "Changed ${{ steps.filter.outputs.backend_count }} backend files"
+
+# Access file list
+- run: echo "Files: ${{ steps.filter.outputs.backend_files }}"
+
+# Access changes array for matrix
+- run: echo "Changed filters: ${{ steps.filter.outputs.changes }}"
+```
+
+<Tip>
+  Use the `changes` output to drive a matrix strategy. Parse the JSON array with `fromJSON()` to fan out jobs only for the parts of your codebase that actually changed.
+</Tip>

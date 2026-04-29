@@ -1,133 +1,77 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
-icon: 'star'
+title: "Paths Changes Filter: Conditional CI/CD for GitHub Actions"
+description: "Run workflow steps and jobs only when relevant files change. Save time and resources with fine-grained change detection for pull requests, branches, and pushes."
 ---
 
-## Setting up
+Paths Changes Filter is a GitHub Action that detects which files were modified in a pull request, feature branch, or push — and lets you conditionally run workflow steps and jobs based on those changes. It's especially powerful for monorepos where you only want to test or deploy the components that actually changed.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Add change detection to your workflow in minutes
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Filter Syntax" icon="filter" href="/guides/filter-syntax">
+    Learn how to write glob patterns and named filters
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Workflow Recipes" icon="code-branch" href="/workflows/pull-requests">
+    Step-by-step examples for pull requests, branches, and more
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Inputs & Outputs" icon="sliders" href="/reference/inputs">
+    Complete reference for all action inputs and outputs
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Why use Paths Changes Filter?
 
-Everything you need to create world-class documentation.
+GitHub's built-in path filters only work at the workflow level — you can't use them to skip individual jobs or steps. Paths Changes Filter solves this by giving you per-step and per-job control based on exactly which files changed.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="Skip expensive jobs" icon="gauge-high">
+    Run integration tests only for the backend when frontend files didn't change
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Monorepo support" icon="layer-group">
+    Configure matrix jobs that build only the packages with actual code changes
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Multiple detection modes" icon="magnifying-glass">
+    Works with pull requests (via GitHub API), feature branches, long-lived branches, and merge queues
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Flexible file listing" icon="list">
+    Export matching file paths as CSV, JSON, or shell-safe strings for downstream steps
   </Card>
-</Columns>
+</CardGroup>
 
-## Make your content agent ready
+## How it works
 
-Make your docs work for humans and AI agents alike.
+<Steps>
+  <Step title="Add the action to your workflow">
+    Reference `dorny/paths-filter@v4` in a workflow step and define your named filters.
+  </Step>
+  <Step title="Define filters with glob patterns">
+    Each filter is a named set of glob rules. When any matched file changes, the filter output is `'true'`.
+  </Step>
+  <Step title="Use outputs to conditionally run steps or jobs">
+    Reference `steps.<id>.outputs.<filter_name>` in `if:` conditions on subsequent steps or jobs.
+  </Step>
+</Steps>
 
-<Columns cols={2}>
-  <Card
-    title="Prompt component"
-    icon="robot"
-    href="/agent-ready/prompt"
-  >
-    Embed shareable AI prompts readers can copy or open in Cursor.
-  </Card>
-  <Card
-    title="Visibility"
-    icon="eye"
-    href="/agent-ready/visibility"
-  >
-    Show different content to humans and agents reading your docs.
-  </Card>
-  <Card
-    title="Contextual menu"
-    icon="bolt"
-    href="/agent-ready/contextual"
-  >
-    Give readers one-click access to Claude, ChatGPT, Cursor, and more.
-  </Card>
-  <Card
-    title="AI coding tools"
-    icon="wand-magic-sparkles"
-    href="/ai-tools/claude-code"
-  >
-    Set up Claude Code, Cursor, or Windsurf with Mintlify's skill.
-  </Card>
-</Columns>
+```yaml
+- uses: dorny/paths-filter@v4
+  id: changes
+  with:
+    filters: |
+      backend:
+        - 'backend/**'
+      frontend:
+        - 'frontend/**'
 
-## Need inspiration?
+- name: Run backend tests
+  if: steps.changes.outputs.backend == 'true'
+  run: make test-backend
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+- name: Run frontend tests
+  if: steps.changes.outputs.frontend == 'true'
+  run: make test-frontend
+```
+
+<Note>
+  Paths Changes Filter supports pull requests, feature branches, long-lived branches, merge queues, and local HEAD changes. See [Workflows](/workflows/pull-requests) for all supported scenarios.
+</Note>

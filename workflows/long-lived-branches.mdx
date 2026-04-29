@@ -1,0 +1,75 @@
+---
+title: "Detect file changes on long-lived branch push events"
+description: "Use dorny/paths-filter on push events to long-lived branches to detect which files changed since the last push to that same branch."
+---
+
+Long-lived branches like `master`, `develop`, or `release/**` receive direct pushes rather than merges from short-lived feature branches. For these branches you typically want to know what changed compared to the previous commit on the same branch — not relative to some other branch. Setting `base` to the same branch that triggered the push activates this mode.
+
+## How it works
+
+When `base` resolves to the same branch that was pushed to, the action reads the `before` SHA from the push event payload and runs:
+
+```bash
+git diff <before_sha>..<head_sha>
+```
+
+This gives you the exact set of files that changed between the previous tip of the branch and the new tip.
+
+### First push of a branch
+
+If the push event's `before` field is the null SHA (`0000000000000000000000000000000000000000`), there is no prior commit to compare against. The action's behavior depends on the context:
+
+- If the pushed branch is **not** the default branch and a default branch exists, the action detects changes since the merge-base with the default branch — so only the commits unique to your new branch are considered changed.
+- If the pushed branch **is** the default branch (initial repository push), all tracked files are listed as added.
+
+### Comparing against a specific commit
+
+You can also set `base` to a commit SHA directly. When `base` is a full git SHA, the action compares `<base_sha>..<head>` rather than using the `before` field from the event payload. This is useful when you want to detect changes relative to a known release commit regardless of what triggered the workflow.
+
+## Example
+
+```yaml
+on:
+  push:
+    branches: [master, develop, release/**]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v4
+      id: filter
+      with:
+        base: ${{ github.ref }}
+        filters: |
+          docs:
+            - 'docs/**'
+          src:
+            - 'src/**'
+    - if: steps.filter.outputs.src == 'true'
+      run: make build
+```
+
+`${{ github.ref }}` resolves to the full ref of the branch that triggered the push (for example `refs/heads/master`). The action strips the `refs/heads/` prefix internally, so the comparison is made against the correct branch name.
+
+<Note>
+You can use any of the push-triggered branches in the same workflow. The `${{ github.ref }}` expression always evaluates to the branch that received the push, so a single workflow definition covers `master`, `develop`, and all `release/**` branches without hardcoding each one.
+</Note>
+
+## Detecting local uncommitted changes
+
+Setting `base: HEAD` is a special case that detects staged and unstaged changes in the working directory relative to the current HEAD commit. This is useful when a preceding step in your workflow modifies files (for example, a linter or code formatter) and you want to detect which files it touched:
+
+```yaml
+- uses: dorny/paths-filter@v4
+  id: filter
+  with:
+    base: HEAD
+    filters: |
+      src:
+        - 'src/**'
+```
+
+<Tip>
+`base: HEAD` works for any workflow event, not just `push`. It reflects the current state of the working tree at the time the action runs.
+</Tip>

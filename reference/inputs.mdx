@@ -1,0 +1,70 @@
+---
+title: "dorny/paths-filter action inputs complete reference"
+description: "Complete reference for all inputs available in the dorny/paths-filter action: filters, token, base, ref, list-files, initial-fetch-depth, and more."
+---
+
+This page documents every input you can pass to `dorny/paths-filter`. All inputs are configured under the `with:` key in your workflow step. Only `filters` is required; all others are optional and have sensible defaults.
+
+<ParamField body="filters" type="string" required>
+  Path to a YAML configuration file, or an inline YAML string defining filter rules. If the value contains a newline character or a colon, it is treated as an inline YAML string; otherwise it is treated as a file path.
+</ParamField>
+
+<ParamField body="token" type="string" default="${{ github.token }}">
+  GitHub access token used to fetch changed files from the GitHub REST API for pull request events. Pass an empty string to disable API access and fall back to local `git diff` detection.
+</ParamField>
+
+<ParamField body="base" type="string" default="repository default branch">
+  Git reference (branch, tag, or commit SHA) to compare changes against. For push events to the same branch, the action detects changes since the last push. This input is ignored for `pull_request` events.
+</ParamField>
+
+<ParamField body="ref" type="string" default="${{ github.ref }}">
+  Git reference from which changes are detected. Useful when your workflow can only be triggered on the default branch but you need to detect changes on another branch. This input is ignored for `pull_request` events.
+</ParamField>
+
+<ParamField body="list-files" type="string" default="none">
+  Enables listing of files matching each filter. Accepted values:
+
+  - `none` — Disables file listing (default).
+  - `csv` — Comma-separated list. Filenames with unsafe characters are wrapped in double quotes.
+  - `json` — Serialised as a JSON array.
+  - `shell` — Space-delimited list suitable for use as Linux shell command-line arguments. Filenames with unsafe characters are wrapped in single or double quotes.
+  - `escape` — Space-delimited list suitable for use as Linux shell command-line arguments. Unsafe characters are backslash-escaped.
+</ParamField>
+
+<ParamField body="initial-fetch-depth" type="number" default="100">
+  Number of commits initially fetched from the base branch when searching for a merge-base. If the merge-base is not found, each subsequent fetch doubles the previous count until it is found or the full history is exhausted. This setting only applies when using git-based change detection against a different base branch.
+</ParamField>
+
+<ParamField body="working-directory" type="string">
+  Relative path under `$GITHUB_WORKSPACE` where the repository was checked out. Use this when your workflow checks out multiple repositories and the target repository is not at the workspace root.
+</ParamField>
+
+<ParamField body="predicate-quantifier" type="string" default="some">
+  Controls how filter patterns are combined when evaluating whether a file matches a filter.
+
+  - `some` — A file matches the filter if it matches **at least one** pattern (default).
+  - `every` — A file matches the filter only if it matches **all** patterns. Use `every` together with negation patterns (e.g. `!**/*.md`) to implement effective exclusions.
+</ParamField>
+
+## Full example
+
+The following step uses several inputs together:
+
+```yaml
+- uses: dorny/paths-filter@v4
+  id: filter
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+    base: main
+    list-files: json
+    initial-fetch-depth: '200'
+    predicate-quantifier: 'every'
+    filters: |
+      backend:
+        - 'services/**'
+        - '!**/*.md'
+```
+
+<Tip>
+  You can store your filter rules in a separate YAML file (e.g. `.github/filters.yml`) and pass the file path as the `filters` value instead of using an inline string.
+</Tip>

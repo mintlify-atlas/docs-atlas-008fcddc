@@ -1,0 +1,62 @@
+---
+title: "Detect changed files on feature branch push events"
+description: "Use dorny/paths-filter on push events to detect only the changes introduced by a feature branch relative to its merge-base with the target branch."
+---
+
+When you push to a feature branch, you usually want to know which files differ from the branch you'll eventually merge into — not every file changed since the beginning of history. `dorny/paths-filter` handles this with a three-dot git diff that finds the merge-base between your branch and the configured base branch, then reports only the changes your branch introduced.
+
+## How three-dot diff works
+
+The action runs:
+
+```bash
+git diff --no-renames --name-status -z <base>...<head>
+```
+
+The three-dot syntax (`...`) tells git to find the best common ancestor (merge-base) between `<base>` and `<head>`, then show only what changed on `<head>` since that point. Changes that exist on `<base>` but not on your branch are excluded, so you get a clean picture of exactly what your feature branch contributes.
+
+## Prerequisites
+
+- The repository must be checked out with `actions/checkout` before the filter runs.
+- The `base` input must reference a different branch than the one being pushed to. If `base` equals the pushed branch, the action switches to [long-lived branch detection](/workflows/long-lived-branches) instead.
+
+## Configuration
+
+| Input | Default | Description |
+|---|---|---|
+| `base` | Repository default branch | The branch to compare against when finding the merge-base. |
+| `initial-fetch-depth` | `100` | How many commits to fetch from `base` on the first attempt. If the merge-base is not found, the action doubles the fetch depth and retries until the full history is exhausted. |
+
+<Tip>
+Set `fetch-depth` on `actions/checkout` to a small number (such as `20`) if your feature branches are typically short-lived. This reduces the initial clone time, and the action will fetch additional commits from the base branch only if it cannot find the merge-base within that window.
+</Tip>
+
+## Example
+
+```yaml
+on:
+  push:
+    branches: [feature/**]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 20
+    - uses: dorny/paths-filter@v4
+      id: filter
+      with:
+        base: develop
+        filters: |
+          backend:
+            - 'backend/**'
+          frontend:
+            - 'frontend/**'
+```
+
+## Fallback behavior
+
+<Warning>
+If the action fetches the complete history of both branches and still cannot find a common ancestor, it falls back to a direct two-dot comparison (`<base>..<head>`). This means all commits reachable from `<head>` but not from `<base>` are included, which may produce a larger diff than expected. This can happen with branches that were created independently and have no shared history.
+</Warning>

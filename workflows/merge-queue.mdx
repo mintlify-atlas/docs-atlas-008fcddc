@@ -1,0 +1,52 @@
+---
+title: "Detect file changes in GitHub merge queue workflows"
+description: "Use dorny/paths-filter with the merge_group event to apply path-based filtering for pull requests waiting in GitHub's merge queue."
+---
+
+GitHub's merge queue batches pull requests and validates them together before merging to the default branch. When a workflow is triggered by the `merge_group` event, `dorny/paths-filter` automatically reads the base and head SHAs from the event payload so you can apply the same path-based filters you use for pull requests.
+
+## How it works
+
+For `merge_group` events, the action uses:
+
+- `merge_group.base_sha` as the base commit
+- `merge_group.head_sha` as the head commit
+
+These values come directly from the event payload. If you provide explicit `base` or `ref` inputs, those take precedence over the event defaults — but in most cases you can omit them and let the action read the payload automatically.
+
+Detection runs via git diff, so the repository must be checked out before the action runs.
+
+<Note>
+GitHub's merge queue is available on repositories with branch protection rules that require the merge queue. It ensures that changes are tested together before they land on the default branch, reducing the chance of a broken main branch.
+</Note>
+
+## Example
+
+The most common pattern is to combine `pull_request` and `merge_group` triggers so the same path filters apply at both review time and merge time:
+
+```yaml
+on:
+  pull_request:
+    branches: [master]
+  merge_group:
+    branches: [master]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v4
+      id: filter
+      with:
+        filters: |
+          backend:
+            - 'backend/**'
+```
+
+When triggered by `pull_request`, the action uses the GitHub API to fetch changed files (and `pull-requests: read` covers that call). When triggered by `merge_group`, it falls through to git-based detection using the SHAs from the event payload.
+
+<Tip>
+Because both triggers share the same job definition, you only need to maintain one set of filters. Any path rule you add for PR review automatically applies to the merge queue validation as well.
+</Tip>

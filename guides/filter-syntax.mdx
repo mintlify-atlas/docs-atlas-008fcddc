@@ -1,0 +1,93 @@
+---
+title: "Filter syntax: glob patterns, change types, anchors"
+description: "Write named filter rules using picomatch glob syntax, change-type qualifiers, negation patterns, and YAML anchors in dorny/paths-filter."
+---
+
+Filters are the core of `dorny/paths-filter`. You define named groups of glob rules, and the action tells you which groups matched the files changed in a push or pull request. Rules are evaluated with the [picomatch](https://github.com/micromatch/picomatch) library, which supports a rich glob syntax and is configured with `dot: true` so patterns also match files and directories whose names begin with `.`.
+
+## Basic filter structure
+
+A filter document is a YAML object. Each top-level key becomes a filter name, and its value is a list of glob rules. A file is reported as matching a filter when it satisfies at least one rule in that filter's list (see [predicate-quantifier](/guides/advanced-options) for how to change this default).
+
+```yaml
+filters: |
+  src:
+    - 'src/**'
+  docs:
+    - 'docs/**'
+    - '*.md'
+```
+
+The action produces one boolean output per filter name (`src`, `docs`, …) indicating whether any changed file matched.
+
+<Tip>
+Always quote glob patterns with single or double quotes. A bare `*` at the start of a YAML value is interpreted as an anchor reference and will cause a parse error.
+</Tip>
+
+## Filtering by change type
+
+By default, a rule matches regardless of whether a file was added, modified, or deleted. You can prefix a rule with one or more change types separated by `|` to restrict which kind of change triggers a match.
+
+```yaml
+filters: |
+  added_or_modified:
+    - added|modified: '**'
+  all_changes:
+    - added|deleted|modified: '**'
+```
+
+Supported change types are `added`, `modified`, `deleted`, `renamed`, `copied`, and `unmerged`. In practice, renames are reported as a deletion of the old path and an addition of the new path, so you rarely need to use `renamed` directly.
+
+<Note>
+The change-type prefix is written as a YAML mapping key, for example `added|modified: 'src/**'`. The pipe (`|`) is part of the key, not a YAML block-scalar indicator.
+</Note>
+
+## Negation patterns
+
+Prefix a pattern with `!` to exclude files that match it. Negation is useful when you want to watch a broad directory but ignore documentation or asset files.
+
+```yaml
+filters: |
+  backend:
+    - 'pkg/**'
+    - '!**/*.md'
+    - '!**/*.jpeg'
+```
+
+With the default `some` quantifier, a negation pattern alone will **not** reliably exclude files — a file that matches `pkg/**` will still trigger the filter even if it also matches `!**/*.md`. To make exclusions work as expected, set `predicate-quantifier: every`. See [Advanced filter options](/guides/advanced-options) for details.
+
+## Reusing patterns with YAML anchors
+
+YAML anchors let you define a set of patterns once and reference them from multiple filters, avoiding repetition.
+
+```yaml
+filters: |
+  shared: &shared
+    - common/**
+    - config/**
+  src:
+    - *shared
+    - src/**
+```
+
+`&shared` defines the anchor; `*shared` inlines the same list wherever you use it. The `src` filter above matches files under `common/`, `config/`, or `src/`.
+
+## Dot files
+
+picomatch is configured with `dot: true`, which means patterns like `**` or `src/**` will match files and directories that start with a dot (for example `.env`, `.github/workflows/build.yml`). You do not need a special pattern to include them.
+
+## Loading filters from a file
+
+When the `filters` value does not contain a newline (`\n`) or a colon (`:`), the action treats it as a path to a YAML file rather than an inline document. This lets you keep large filter sets in a dedicated file.
+
+```yaml
+- uses: dorny/paths-filter@v4
+  with:
+    filters: .github/filters.yaml
+```
+
+The path is resolved relative to the working directory (by default `$GITHUB_WORKSPACE`). The file must be accessible at the time the action runs — for pull-request workflows this usually means the file is already present on the base branch.
+
+<Note>
+If your filter value contains a colon or a newline, the action always parses it as an inline YAML string. Only values that look like plain file paths are treated as paths.
+</Note>

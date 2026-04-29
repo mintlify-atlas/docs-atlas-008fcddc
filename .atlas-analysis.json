@@ -1,0 +1,78 @@
+{
+  "projectType": "general",
+  "projectName": "Paths Changes Filter",
+  "projectDescription": "A GitHub Action that enables conditional execution of workflow steps and jobs based on the files modified by pull requests, feature branches, or pushed commits.",
+  "theme": "aspen",
+  "primaryColor": "#663ebc",
+  "lightColor": "#b49cdc",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Workflows",
+            "pages": [
+              "workflows/pull-requests",
+              "workflows/feature-branches",
+              "workflows/long-lived-branches",
+              "workflows/merge-queue"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/filter-syntax",
+              "guides/conditional-execution",
+              "guides/matrix-jobs",
+              "guides/listing-files",
+              "guides/advanced-options"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/inputs",
+              "reference/outputs",
+              "reference/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Detect changed files in pull requests using GitHub REST API",
+    "Detect changed files in feature and long-lived branches using git diff",
+    "Define named filters with glob patterns using picomatch",
+    "Conditional step and job execution based on filter matches",
+    "List changed files in multiple formats (csv, json, shell, escape)",
+    "Support for merge queue events",
+    "YAML anchor support for reusable path expressions",
+    "Filter by change type: added, modified, or deleted",
+    "Predicate quantifier control (some vs every) for complex filter logic",
+    "Monorepo support with matrix job configuration"
+  ],
+  "publicApiSurface": [
+    "input: filters (required) — YAML string or path to filter config file",
+    "input: token — GitHub access token (default: github.token)",
+    "input: base — Git reference to compare changes against",
+    "input: ref — Git reference from which changes are detected",
+    "input: list-files — Output format for matching file lists (none/csv/json/shell/escape)",
+    "input: initial-fetch-depth — Number of commits initially fetched from base branch",
+    "input: working-directory — Relative path where repo was checked out",
+    "input: predicate-quantifier — Match logic quantifier (some/every)",
+    "output: <filter_name> — 'true'/'false' whether filter matched any changed file",
+    "output: <filter_name>_count — Count of files matching the filter",
+    "output: <filter_name>_files — List of files matching the filter (when list-files enabled)",
+    "output: changes — JSON array of all filter names that matched changed files"
+  ]
+}

@@ -1,0 +1,77 @@
+---
+title: "Export changed file paths using the list-files input"
+description: "Configure the list-files input to get matched file paths in CSV, JSON, shell, or escape format and pass them to linters and other downstream steps."
+---
+
+By default, `dorny/paths-filter` only tells you **whether** files matched a filter — it does not list which files those were. When you need to pass the matched file paths to a linter, formatter, or another action, set the `list-files` input to one of four export formats. The action then populates an additional `<filter_name>_files` output for each filter alongside the usual boolean and count outputs.
+
+## Export formats
+
+<CardGroup cols={2}>
+  <Card title="csv" icon="table">
+    Comma-separated list of file paths. Paths containing unsafe characters are wrapped in double quotes.
+  </Card>
+  <Card title="json" icon="brackets-curly">
+    A JSON array of file path strings, suitable for passing to actions or tools that accept JSON input.
+  </Card>
+  <Card title="shell" icon="terminal">
+    Space-delimited list safe for use as shell command-line arguments. Paths with unsafe characters are wrapped in single or double quotes.
+  </Card>
+  <Card title="escape" icon="backslash">
+    Space-delimited list where potentially unsafe characters are backslash-escaped rather than quoted.
+  </Card>
+</CardGroup>
+
+The default is `none`, which disables file listing entirely and leaves `<filter_name>_files` empty.
+
+<Note>
+The `<filter_name>_count` output is always populated with the number of matching files regardless of the `list-files` setting. You can use it in conditions even when you do not need the file paths themselves.
+</Note>
+
+## Passing files to a shell command
+
+Use `list-files: shell` to run a tool like a linter directly against the changed files:
+
+```yaml
+- uses: dorny/paths-filter@v4
+  id: filter
+  with:
+    list-files: shell
+    filters: |
+      markdown:
+        - added|modified: '*.md'
+- name: Lint Markdown
+  if: steps.filter.outputs.markdown == 'true'
+  run: npx textlint ${{ steps.filter.outputs.markdown_files }}
+```
+
+<Tip>
+Use `added|modified` instead of a bare glob when passing files to tools that read file contents. Deleted files no longer exist on disk, so a linter or formatter will fail if you pass their paths.
+</Tip>
+
+## Passing files to another action
+
+Use `list-files: json` when you need to hand the file list to a downstream action that accepts a JSON array:
+
+```yaml
+- uses: dorny/paths-filter@v4
+  id: filter
+  with:
+    list-files: json
+    filters: |
+      changed:
+        - '**'
+- uses: johndoe/some-action@v1
+  with:
+    files: ${{ steps.filter.outputs.changed_files }}
+```
+
+## Outputs reference
+
+For a filter named `backend`, the action sets:
+
+| Output | Type | Description |
+|---|---|---|
+| `backend` | `'true'` \| `'false'` | Whether any changed file matched the filter |
+| `backend_count` | number string | Count of files matching the filter |
+| `backend_files` | string | Formatted list of matching file paths (empty when `list-files: none`) |

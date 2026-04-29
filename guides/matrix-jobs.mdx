@@ -1,0 +1,79 @@
+---
+title: "Dynamic matrix jobs scoped to changed monorepo packages"
+description: "Use the changes output JSON array to build a GitHub Actions matrix so only modified monorepo packages are built and tested in each run."
+---
+
+In a monorepo you often have many independent packages, and you want to build and test only the ones that were actually changed in a given pull request or push. `dorny/paths-filter` provides a `changes` output — a JSON array containing the names of every filter that matched at least one changed file. You can pass this array directly to a GitHub Actions matrix to fan out jobs over exactly the packages that need attention.
+
+## How it works
+
+<Steps>
+  <Step title="Define one filter per package">
+    Give each package its own filter name. The action matches changed files against each filter and records the names of all filters that matched in the `changes` output.
+  </Step>
+  <Step title="Expose changes as a job output">
+    Promote the `changes` output from the filter step to a job-level output so downstream jobs can read it.
+  </Step>
+  <Step title="Use fromJSON to build the matrix">
+    In the downstream job, call `fromJSON(needs.changes.outputs.packages)` inside the `matrix:` key to turn the JSON string into a real array that GitHub Actions can iterate over.
+  </Step>
+</Steps>
+
+## Example
+
+```yaml
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      packages: ${{ steps.filter.outputs.changes }}
+    steps:
+    - uses: dorny/paths-filter@v4
+      id: filter
+      with:
+        filters: |
+          package1: src/package1
+          package2: src/package2
+          package3: src/package3
+
+  build:
+    needs: changes
+    strategy:
+      matrix:
+        package: ${{ fromJSON(needs.changes.outputs.packages) }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: make build PACKAGE=${{ matrix.package }}
+```
+
+The `changes` output for a PR that touched only `src/package1` and `src/package3` would be:
+
+```json
+["package1", "package3"]
+```
+
+The `build` job then fans out into two parallel runs — one for `package1` and one for `package3`. `package2` is never scheduled.
+
+<Tip>
+If no filters match (nothing changed), the `changes` array is empty and the `build` job is skipped entirely — GitHub Actions treats an empty matrix as a no-op. You won't consume any runner minutes for a pull request that only changes documentation, for example.
+</Tip>
+
+<Warning>
+Do not name any of your filters `changes`. The action reserves that name for its own JSON-array output and will warn you if it detects a collision.
+</Warning>
+
+## Scaling to many packages
+
+For large monorepos with dozens of packages, consider defining your filters in an external file to keep the workflow YAML readable:
+
+```yaml
+- uses: dorny/paths-filter@v4
+  id: filter
+  with:
+    filters: .github/package-filters.yaml
+```
+
+See [Writing filter rules with glob patterns](/guides/filter-syntax) for instructions on loading filters from a file.

@@ -1,0 +1,92 @@
+---
+title: "Conditionally run steps and jobs with path filters"
+description: "Skip expensive steps and jobs when no relevant files changed by wiring dorny/paths-filter outputs to GitHub Actions if: conditions."
+---
+
+`dorny/paths-filter` outputs a boolean string for every filter you define. You can use those outputs in `if:` conditions to skip steps that have no work to do — for example, only running backend tests when backend files changed. There are two common patterns: conditional steps inside a single job, and conditional jobs that only start if their corresponding filter matched.
+
+## Pattern 1: Conditional steps
+
+Run `dorny/paths-filter` as an early step and reference its outputs in the `if:` field of later steps. All steps share the same job runner, so there is no extra queue time, but every step still counts against the job's total runtime.
+
+```yaml
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v4
+      id: filter
+      with:
+        filters: |
+          backend:
+            - 'backend/**'
+          frontend:
+            - 'frontend/**'
+    - name: Backend tests
+      if: steps.filter.outputs.backend == 'true'
+      run: make test-backend
+    - name: Frontend tests
+      if: steps.filter.outputs.frontend == 'true'
+      run: make test-frontend
+    - name: E2E tests
+      if: steps.filter.outputs.backend == 'true' || steps.filter.outputs.frontend == 'true'
+      run: make test-e2e
+```
+
+<Tip>
+Output values are always the strings `'true'` or `'false'`, not YAML booleans. Write your condition as `== 'true'`, not just the output variable on its own.
+</Tip>
+
+## Pattern 2: Conditional jobs
+
+For heavier workloads — such as jobs that spin up dedicated runners or run for many minutes — it is more efficient to skip the job entirely. Declare a dedicated `changes` job, expose its filter outputs as job-level outputs, and then use `needs.changes.outputs.<name>` in the `if:` condition of downstream jobs.
+
+```yaml
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+    - uses: dorny/paths-filter@v4
+      id: filter
+      with:
+        filters: |
+          backend:
+            - 'backend/**'
+          frontend:
+            - 'frontend/**'
+
+  backend:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: make test-backend
+
+  frontend:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: make test-frontend
+```
+
+<Note>
+When the workflow is triggered by a `pull_request` event, `dorny/paths-filter` uses the GitHub REST API to fetch the list of changed files. The `changes` job does **not** need a `actions/checkout` step in that case, which makes change detection fast and cheap. You do need to grant the `pull-requests: read` permission.
+</Note>
+
+## Choosing between patterns
+
+| | Conditional steps | Conditional jobs |
+|---|---|---|
+| Runner cost | One runner for all steps | Separate runner per job |
+| Skip granularity | Step-level | Job-level |
+| Requires `checkout` in changes job | Yes (for push events) | Not for PR events |
+| Suited for | Fast unit tests, linters | Long integration tests, deployments |

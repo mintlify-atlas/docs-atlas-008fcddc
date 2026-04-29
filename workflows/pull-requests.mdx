@@ -1,0 +1,73 @@
+---
+title: "Detect file changes in pull request event workflows"
+description: "Use dorny/paths-filter to detect which files changed in a pull request via the GitHub REST API and conditionally run steps or jobs."
+---
+
+When your workflow is triggered by a pull request event, `dorny/paths-filter` queries the GitHub REST API to retrieve the exact list of files changed in that PR compared to its base branch. This approach is accurate and does not require a full git history to be present in the runner.
+
+## Supported events
+
+The API-based detection works for the following events:
+
+- `pull_request`
+- `pull_request_target`
+- `pull_request_review`
+- `pull_request_review_comment`
+
+<Note>
+The `base` and `ref` inputs are ignored for all pull request events. The action always compares against the PR's own base branch as reported by the event payload.
+</Note>
+
+## Required permissions
+
+The action calls `client.rest.pulls.listFiles` under the hood, which requires the `pull-requests: read` permission. Add it to your job's `permissions` block:
+
+```yaml
+permissions:
+  pull-requests: read
+```
+
+## Token behavior
+
+By default, the action uses `github.token` to authenticate with the API. You can override this with the `token` input if you need a different credential.
+
+If you pass an empty string for `token`, the action falls back to detecting changes with `git diff` using `pull_request.base.sha` — except for `pull_request_target`, where a token is **required**.
+
+<Warning>
+If your workflow is triggered by `pull_request_target` and you do not provide a token, the action will throw an error and fail. This event runs in the context of the base branch, so there is no safe way to reconstruct the diff from git history alone.
+</Warning>
+
+## Example
+
+The workflow below runs backend and frontend tests only when the relevant files have changed:
+
+```yaml
+on:
+  pull_request:
+    branches: [master, develop]
+  merge_group:
+    branches: [master, develop]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v4
+      id: filter
+      with:
+        filters: |
+          backend:
+            - 'backend/**'
+          frontend:
+            - 'frontend/**'
+    - if: steps.filter.outputs.backend == 'true'
+      run: make test-backend
+    - if: steps.filter.outputs.frontend == 'true'
+      run: make test-frontend
+```
+
+<Tip>
+For pull request workflows, you do not need to check out the repository to run change detection — the API provides the file list without requiring local git history. You can omit the `actions/checkout` step in a dedicated change-detection job to speed up that job.
+</Tip>
